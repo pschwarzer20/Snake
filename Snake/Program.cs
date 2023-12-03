@@ -1,6 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -8,39 +10,109 @@ namespace Snake
 {
     class Player
     {
-        public int x = 10;
-        public int y = 10;
-        public int size = 1;
-        public int direction = 1;
+        public List<Piece> pieces = new List<Piece> { };
+        public List<Turn> turns = new List<Turn> { };
+
+        public Player()
+        {
+            this.pieces.Add(new Piece(10, 10, 1));
+        }
+        public void AddPiece()
+        {
+            var lastPiece = this.pieces[this.pieces.Count - 1];
+
+            var (positionX, positionY) = (0, 0);
+            var position = lastPiece.position;
+
+            switch (lastPiece.direction)
+            {
+                case 1:
+                    (positionX, positionY) = (position.x,  position.y + 1);
+                    break;
+                case 2:
+                    (positionX, positionY) = (position.x, position.y - 1);
+                    break;
+                case 3:
+                    (positionX, positionY) = (position.x + 1, position.y);
+                    break;
+                case 4:
+                    (positionX, positionY) = (position.x - 1, position.y);
+                    break;
+
+            }
+
+            Piece newPiece = new Piece(positionX, positionY, lastPiece.direction);
+            this.pieces.Add(newPiece);
+        }
+        public void AddTurn(Position position, int direction)
+        {
+            turns.Add(new Turn(position.x, position.y, direction));
+        }
     }
 
     class Fruit
     {
+        public Position position;
+
+        public Fruit(int x, int y)
+        {
+            this.position = new Position(x, y);
+        }
+    }
+
+    class Position
+    {
         public int x;
         public int y;
-        public Fruit(int x, int y)
+
+        public Position(int x, int y)
+        {
+            this.x = x;
+            this.y = y;
+        }
+        public void Set(int x, int y)
         {
             this.x = x;
             this.y = y;
         }
     }
 
+    class Piece
+    {
+        public Position position;
+        public int direction;
+
+        public Piece(int x, int y, int direction)
+        {
+            this.position = new Position(x, y);
+            this.direction = direction;
+        }
+    }
+
     class Turn
     {
+        public Position position;
+        public int newDirection;
+        public List<Piece> completedPieces = new List<Piece> { };
 
+        public Turn(int x, int y, int direction)
+        {
+            this.position = new Position(x, y);
+            this.newDirection = direction;
+        }
     }
 
     class Program
     {
+        static int screenWidth = 50, screenHeight = 20;
         static Random rand = new Random();
 
         static void Main(string[] args)
         {
-            int screenWidth = 50, screenHeight = 20;
-
             bool isRunning = true;
-            ConsoleKey pressedKey = ConsoleKey.Zoom;
             double gameTick = 0;
+            ConsoleKey pressedKey = ConsoleKey.Zoom;
+
             Player player = new Player();
             List<Fruit> fruits = new List<Fruit> { };
 
@@ -65,74 +137,102 @@ namespace Snake
                     }
                 }
 
-                if (gameTick < DateTime.Now.TimeOfDay.TotalSeconds)
+                var curTime = DateTime.Now.TimeOfDay.TotalSeconds;
+                if (gameTick < curTime)
                 {
-                    gameTick = DateTime.Now.TimeOfDay.TotalSeconds + 0.25;
-
-                    Console.SetCursorPosition(player.x, player.y);
-                    Console.Write("*");
+                    var firstPiece = player.pieces[0];
+                    var (playerPositionX, playerPositionY) = (firstPiece.position.x, firstPiece.position.y);
+                    gameTick = curTime + 0.2;
 
                     // Input
                     switch (pressedKey)
                     {
-                        case ConsoleKey.W:
-                            player.direction = 1;
+                        case ConsoleKey.UpArrow:
+                            firstPiece.direction = 1;
+                            player.AddTurn(firstPiece.position, firstPiece.direction);
                             break;
-                        case ConsoleKey.S:
-                            player.direction = 2;
+                        case ConsoleKey.DownArrow:
+                            firstPiece.direction = 2;
+                            player.AddTurn(firstPiece.position, firstPiece.direction);
                             break;
-                        case ConsoleKey.A:
-                            player.direction = 3;
+                        case ConsoleKey.LeftArrow:
+                            firstPiece.direction = 3;
+                            player.AddTurn(firstPiece.position, firstPiece.direction);
                             break;
-                        case ConsoleKey.D:
-                            player.direction = 4;
+                        case ConsoleKey.RightArrow:
+                            firstPiece.direction = 4;
+                            player.AddTurn(firstPiece.position, firstPiece.direction);
                             break;
                     }
-                    Console.SetCursorPosition(player.x + 1, player.y);
-                    Console.Write("#");
+
 
                     // Movement
-                    Console.SetCursorPosition(player.x, player.y);
-                    Console.Write("#");
-                    switch (player.direction)
+                    foreach (var piece in player.pieces)
                     {
-                        case 1:
-                            --player.y;
-                            break;
-                        case 2:
-                            ++player.y;
-                            break;
-                        case 3:
-                            --player.x;
-                            break;
-                        case 4:
-                            ++player.x;
-                            break;
-                    }
-                    if (player.x > 0 && player.y > 0)
-                    {
-                        Console.SetCursorPosition(player.x, player.y);
-                        Console.Write("*");
+                        var (piecePositionX, piecePositionY) = (piece.position.x, piece.position.y);
+
+                        // Check if the piece needs to make a turn
+                        foreach (var turn in player.turns)
+                        {
+                            if (!turn.completedPieces.Contains(piece) && turn.position.x == piecePositionX && turn.position.y == piecePositionY)
+                            {
+                                piece.direction = turn.newDirection;
+                                turn.completedPieces.Add(piece);
+                                break;
+                            }
+                        }
+
+                        Console.SetCursorPosition(piecePositionX, piecePositionY);
+                        Console.Write("#");
+                        switch (piece.direction)
+                        {
+                            case 1:
+                                piece.position.Set(piecePositionX, piecePositionY - 1);
+                                break;
+                            case 2:
+                                piece.position.Set(piecePositionX, piecePositionY + 1);
+                                break;
+                            case 3:
+                                piece.position.Set(piecePositionX - 1, piecePositionY);
+                                break;
+                            case 4:
+                                piece.position.Set(piecePositionX + 1, piecePositionY);
+                                break;
+                        }
+                        (piecePositionX, piecePositionY) = (piece.position.x, piece.position.y);
+
+                        if (piecePositionX > 0 && piecePositionY > 0)
+                        {
+                            Console.SetCursorPosition(piecePositionX, piecePositionY);
+                            Console.Write("*");
+                        }
                     }
 
+
                     // Collision
-                    if ((player.y < 0 || player.y > screenHeight) || (player.x < 0 || player.x > screenWidth))
+                    if ((playerPositionX < 0 || playerPositionX > screenWidth) || (playerPositionY < 0 || playerPositionY > screenHeight))
                     {
                         Console.SetCursorPosition(0, screenHeight + 1);
                         isRunning = false;
                     }
-
-                    foreach (Fruit fruit in fruits)
+                    foreach (Fruit fruit in fruits.ToList())
                     {
-                        if (player.x == fruit.x && player.y == fruit.y)
+                        var (fruitPositionX, fruitPositionY) = (fruit.position.x, fruit.position.y);
+                        if (playerPositionX == fruitPositionX && playerPositionY == fruitPositionY)
                         {
-                            fruits.Remove(fruit);
-                            ++player.size;
-                        }
+                            Console.SetCursorPosition(fruitPositionX, fruitPositionY);
+                            Console.Write("#");
 
-                        Console.SetCursorPosition(fruit.x, fruit.y);
-                        Console.Write("Ä");
+                            player.AddPiece();
+                            fruits.Remove(fruit);
+                        }
+                        else
+                        {
+                            Console.SetCursorPosition(fruitPositionX, fruitPositionY);
+                            Console.Write("Ä");
+                        }
                     }
+
 
                     // Fruit Spawning
                     if (fruits.Count < 3)
@@ -141,9 +241,11 @@ namespace Snake
                         var y = rand.Next(0, screenHeight);
                         fruits.Add(new Fruit(x, y));
                     }
+
+                    Console.SetCursorPosition(screenWidth+1, screenHeight);
                 }
             }
-            Console.WriteLine("Game Over - Score: " + player.size);
+            Console.WriteLine("Game Over - Score: " + player.pieces.Count());
         }
     }
 }
